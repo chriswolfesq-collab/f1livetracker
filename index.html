@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>F1 Live Race Tracker</title>
+<title>F1 Live Race Tracker V6</title>
 <style>
   :root{
     --bg:#050608; --panel:#101217; --panel2:#171a21; --line:#2c3039;
@@ -43,6 +43,32 @@
   .drs2{right:11%;top:69%;width:130px;transform:rotate(103deg)}
   .wearLow{color:var(--green)}.wearMid{color:var(--yellow)}.wearHigh{color:#ff4b4b}
 
+
+  .liveDataStrip{margin-top:12px;border:1px solid #333943;border-radius:8px;background:linear-gradient(90deg,#10131a,#090b10);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;font-size:15px;color:#d8dbe1}
+  .liveDataStrip .dot{display:inline-block;margin-right:10px;vertical-align:-1px}
+  .liveDataStrip b{color:var(--yellow);margin-right:12px}
+  .settingsBtn{background:#151820;color:#fff;border:1px solid #343943;border-radius:7px;padding:9px 13px;font-weight:800;cursor:pointer}
+  .settingsBtn:hover,.apiBtn:hover{filter:brightness(1.08)}
+  .settingsDrawer{display:none;position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:99;align-items:flex-start;justify-content:flex-end;padding:90px 30px}
+  .settingsDrawer.open{display:flex}
+  .settingsBox{width:min(430px,calc(100vw - 40px));border:1px solid #3a404b;border-radius:12px;background:linear-gradient(180deg,#171a21,#090b10);box-shadow:0 20px 60px rgba(0,0,0,.55);padding:18px}
+  .settingsHead{display:flex;justify-content:space-between;align-items:center;color:var(--yellow);font-size:20px}
+  .settingsHead button{background:transparent;color:#fff;border:0;font-size:32px;line-height:1;cursor:pointer}
+  .settingsBox p{color:var(--muted);line-height:1.35}
+  .settingsBox .apiInput{display:block;width:100%;margin:14px 0}
+  .settingsBox .apiBtn{margin-right:8px}
+  .apiBtn.secondary{background:#20242b;color:#fff;border:1px solid #3a404b}
+  .car{font-size:11px;letter-spacing:.3px;width:34px;height:24px;border-radius:999px;border:2px solid #fff}
+  .car.active{transform:scale(1.28)}
+  .track-path{stroke-width:24}
+  .trackbox::after{content:"ESTIMATED TRACK POSITION";position:absolute;right:18px;bottom:18px;color:#757c89;font-size:12px;letter-spacing:1.2px}
+  .miniFeed{top:88px}
+  .trackSelect{font-weight:800}
+  .statusMode{color:var(--green);font-weight:900}
+  .statusWarn{color:var(--yellow);font-weight:900}
+  .trackLabel{position:absolute;color:#d8dbe1;background:rgba(8,10,14,.78);border:1px solid #343943;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:900;pointer-events:none}
+  .trackLabel.s1lbl{left:55%;top:4%}.trackLabel.s2lbl{right:7%;top:44%}.trackLabel.s3lbl{left:19%;bottom:8%}
+
 </style>
 </head>
 <body>
@@ -62,16 +88,26 @@
     <nav class="tabs">
       <div class="tab active">LIVE TRACKER</div><div class="tab">LEADERBOARD</div><div class="tab">LAP TIMES</div><div class="tab">TYRE STRATEGY</div><div class="tab">WEATHER</div><div class="tab">SECTORS</div>
     </nav>
-    <div class="controlbar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <b>OPENF1 LIVE DATA</b>
-      <button class="apiBtn" id="refreshLive">Refresh Now</button>
-      <input class="apiInput" id="apiToken" placeholder="Bearer token optional for live data" style="min-width:280px">
-      <button class="apiBtn" id="saveToken">Save Token</button>
-      <span class="apiStatus" id="apiStatus">Connecting to OpenF1...</span>
+    <div class="liveDataStrip">
+      <div><span class="dot livePulse"></span><b>OPENF1</b> <span id="apiStatus">Connecting to OpenF1...</span></div>
+      <button class="settingsBtn" id="openSettings">⚙ Data Settings</button>
+    </div>
+
+    <div class="settingsDrawer" id="settingsDrawer">
+      <div class="settingsBox">
+        <div class="settingsHead">
+          <b>Live Data Settings</b>
+          <button id="closeSettings">×</button>
+        </div>
+        <p>Use this only if OpenF1 requires a real-time token. Historical/latest public data may load without one.</p>
+        <input class="apiInput" id="apiToken" placeholder="OpenF1 bearer token">
+        <button class="apiBtn" id="saveToken">Save Token</button>
+        <button class="apiBtn secondary" id="refreshLive">Refresh Now</button>
+      </div>
     </div>
 
     <main class="grid">
-      <aside class="panel leader"><h2>LIVE ORDER</h2><table id="leaderTable"><thead><tr><th>POS</th><th>DRIVER</th><th>GAP</th><th>TYRE</th><th>LAST</th><th>Δ</th></tr></thead><tbody></tbody></table></aside>
+      <aside class="panel leader"><h2>LIVE ORDER</h2><table id="leaderTable"><thead><tr><th>P</th><th>DRIVER</th><th>GAP</th><th>TYRE</th><th>LAST LAP</th><th>Δ</th></tr></thead><tbody></tbody></table></aside>
       <section class="panel mapwrap">
         <div class="maptop">
   <h2 id="trackTitle">TRACK MAP</h2>
@@ -88,7 +124,7 @@
   </div>
 </div>
         <div class="trackbox" id="trackBox">
-          <div class="sectorGlow s1"></div><div class="sectorGlow s2"></div><div class="sectorGlow s3"></div><div class="drsZone drs1"></div><div class="drsZone drs2"></div><div class="miniFeed" id="miniFeed"><b>RACE FEED</b><div>Lap 31: DRS enabled</div><div>VER sets fastest lap</div><div>ALO track limits warning</div></div><svg class="track" viewBox="0 0 900 540" preserveAspectRatio="none">
+          <div class="sectorGlow s1"></div><div class="sectorGlow s2"></div><div class="sectorGlow s3"></div><div class="drsZone drs1"></div><div class="drsZone drs2"></div><div class="trackLabel s1lbl">S1</div><div class="trackLabel s2lbl">S2</div><div class="trackLabel s3lbl">S3</div><div class="miniFeed" id="miniFeed"><b>RACE FEED</b><div>Lap 31: DRS enabled</div><div>VER sets fastest lap</div><div>ALO track limits warning</div></div><svg class="track" viewBox="0 0 900 540" preserveAspectRatio="none">
             <path class="track-path" d="M130 270 C60 205 75 155 145 190 C220 235 265 275 350 270 C440 265 440 215 430 135 C415 50 510 58 595 70 C725 90 820 250 790 390 C765 505 660 455 595 425 C520 390 510 505 420 470 C335 435 315 500 230 440 C160 390 210 325 130 270 Z" />
           </svg>
           <div class="car c1" style="left:61%;top:13%">1</div><div class="car c2" style="left:83%;top:61%">2</div><div class="car c3" style="left:52%;top:12%">3</div><div class="car c4" style="left:24%;top:67%">4</div><div class="car c5" style="left:43%;top:33%">18</div><div class="car c6" style="left:46%;top:11%">6</div><div class="car c7" style="left:42%;top:61%">7</div><div class="car c8" style="left:36%;top:48%">8</div><div class="car c9" style="left:18%;top:45%">14</div><div class="car c10" style="left:41%;top:10%">11</div>
@@ -149,7 +185,7 @@ async function api(endpoint){
   return await res.json();
 }
 function setStatus(msg,good=false){
-  statusEl.textContent=msg;
+  statusEl.innerHTML=(good?'<span class="statusMode">LIVE DATA</span> ':'<span class="statusWarn">STATUS</span> ')+msg;
   statusEl.style.color=good?'var(--green)':'var(--muted)';
 }
 function formatLap(sec){
@@ -231,6 +267,7 @@ function buildRows({positions=[],intervals=[],laps=[],stints=[],pits=[]}){
   if(best) state.fastest={code:best.code,time:best.bestLap};
 
   state.rows=rows;
+  if(!rows.length && !state.simFallback){ startDemoFallback(); return state.rows; }
   if(!state.selected && rows.length) state.selected=rows[0].num;
   return rows;
 }
@@ -260,7 +297,7 @@ function updateDriverCard(d){
   document.querySelector('.driverphoto').style.background=`linear-gradient(160deg,${d.color},#0c0e13)`;
   document.querySelector('.drivername small').textContent=d.first || d.code;
   document.querySelector('.drivername strong').textContent=d.last || d.code;
-  document.querySelector('.drivername p').textContent=`${d.team}`;
+  document.querySelector('.drivername p').textContent=d.team || 'OPENF1 TIMING';
   document.querySelector('.stats .stat:nth-child(1) strong').innerHTML=`<span class="tyre ${tyreClass(d.tyre)}">${shortTyre(d.tyre)}</span>`;
   document.querySelector('.stats .stat:nth-child(1) p').textContent=d.tyreAge!==''?`${d.tyreAge} LAPS OLD`:'LIVE STINT';
   document.querySelector('.stats .stat:nth-child(2) strong').textContent=d.pits;
@@ -290,7 +327,7 @@ function positionCarsSmooth(){
     const el=carEls[i];
     if(!el) return;
     el.dataset.num=d.num;
-    el.textContent=d.num;
+    el.textContent=d.code || d.num;
     el.style.background=d.color;
     const pt=path.getPointAtLength((d.progress%1)*pathLen);
     el.style.left=((pt.x/900)*100)+'%';
@@ -364,7 +401,7 @@ async function loadLiveData(){
     setStatus('OpenF1 updated '+state.lastApiUpdate.toLocaleTimeString(),true);
   }catch(err){
     console.error(err);
-    setStatus('OpenF1 error: '+err.message+'. Showing last loaded data or demo layout.');
+    setStatus('OpenF1 unavailable. Showing demo timing until live data returns.');
     addFeed('OpenF1 connection issue');
     if(!state.rows.length) startDemoFallback();
   }
@@ -418,7 +455,14 @@ document.getElementById('saveToken').onclick=()=>{
   state.token=tokenInput.value.trim();
   localStorage.setItem('openf1_token',state.token);
   setStatus('Token saved. Refreshing...');
-  loadLiveData();
+  
+document.getElementById('openSettings').onclick=()=>document.getElementById('settingsDrawer').classList.add('open');
+document.getElementById('closeSettings').onclick=()=>document.getElementById('settingsDrawer').classList.remove('open');
+document.getElementById('settingsDrawer').addEventListener('click',e=>{
+  if(e.target.id==='settingsDrawer') e.currentTarget.classList.remove('open');
+});
+
+loadLiveData();
 };
 
 const tracks={
@@ -433,7 +477,7 @@ document.getElementById('trackSelector').addEventListener('change',e=>{
   const t=tracks[e.target.value];
   path.setAttribute('d',t.path);
   pathLen=path.getTotalLength();
-  document.getElementById('trackTitle').textContent='TRACK MAP - '+t.name.split(' ')[0];
+  document.getElementById('trackTitle').textContent='TRACK MAP'
   addFeed('Track map changed to '+t.name);
 });
 
